@@ -1,0 +1,208 @@
+#runtime "hsp3cl"
+#packopt name "z80emu_cl"
+#uselib "crtdll.dll"
+#cfunc global _kbhit "_kbhit"
+#cfunc global _getch "_getch"
+#func global printf "printf" sptr,sptr
+#cfunc global mktime "mktime" int
+#func global timeformt "time" int
+sdim memory,65536
+sdim diskfname,2048,256
+dmaptr=0:track=0:sector=0:diskid=0:diskstat=0
+#module
+#deffunc z80memaccess int prm_0,int prm_1,int prm_2
+switch prm_2
+case 0
+poke memory@,prm_0,prm_1
+return
+swbreak
+case 1
+return peek(memory@,prm_0)
+swbreak
+case 2
+	switch (prm_0&0xFF)
+	case 0x11
+		strforshow="":lpoke strforshow,0,prm_1:printf "%s",strforshow:return
+	swbreak
+	case 0x13
+		strforshow="":lpoke strforshow,0,prm_1:printf "%s",strforshow:return
+	swbreak
+	case 0x15
+	return
+	swbreak
+	case 0x17
+	return
+	swbreak
+	case 0x19
+	return
+	swbreak
+	case 0x1D
+	return
+	swbreak
+	case 0x30
+	return
+	swbreak
+	case 0x31
+	return
+	swbreak
+	case 0x70
+		diskptr=((track@*32)+sector@)*128:sdim dmadata,128
+		exist diskfname@(diskid@)
+		if strsize=-1{
+		diskstat@=0xFF
+		}else{
+		switch prm_1
+		case 0
+		dmaptr=0:track=0:sector=0
+		swbreak
+		case 1
+		track=0
+		swbreak
+		case 2
+		bload diskfname@(diskid@),dmadata,128,diskptr
+		memcpy memory@,dmadata,128,dmaptr@,0
+		diskstat@=0
+		swbreak
+		case 3
+		memcpy dmadata,memory@,128,0,dmaptr@
+		bsave diskfname@(diskid@),dmadata,128,diskptr
+		diskstat@=0
+		swbreak
+		swend
+		}
+		return
+	swbreak
+	case 0x71
+	diskid@=prm_1
+	return
+	swbreak
+	case 0x72
+	poke sector@,0,prm_1
+	return
+	swbreak
+	case 0x73
+	poke sector@,1,prm_1
+	return
+	swbreak
+	case 0x74
+	poke track@,0,prm_1
+	return 
+	swbreak
+	case 0x75
+	poke track@,1,prm_1
+	return 
+	swbreak
+	case 0x76
+	poke dmaptr@,0,prm_1
+	return
+	swbreak
+	case 0x77
+	poke dmaptr@,1,prm_1
+	return
+	swbreak
+	swend
+	return
+swbreak
+case 3
+	switch (prm_0&0xFF)
+	case 0x10
+	return 0x4|((_kbhit()!0)*2)|0x1
+	swbreak
+	case 0x11
+	if (_kbhit()!0){return _getch()}else{return 0x00}
+	swbreak
+	case 0x12
+	return 0x4|((_kbhit()!0)*2)|0x1
+	swbreak
+	case 0x13
+	if (_kbhit()!0){return _getch()}else{return 0x00}
+	swbreak
+	case 0x14
+	return 0
+	swbreak
+	case 0x15
+	return 0xFF
+	swbreak
+	case 0x16
+	return 0
+	swbreak
+	case 0x17
+	return 0xFF
+	swbreak
+	case 0x18
+	return 0
+	swbreak
+	case 0x1A
+	return 0
+	swbreak
+	case 0x1B
+	return 0xFF
+	swbreak
+	case 0x1C
+	return 0
+	swbreak
+	case 0x30
+	return 0x7F
+	swbreak
+	case 0x31
+	return 0x7F
+	swbreak
+	case 0x40
+	return 0
+	swbreak
+	case 0x41
+	return 0xFF
+	swbreak
+	case 0x48
+	return 0x01
+	swbreak
+	case 0x70
+	return diskstat@
+	swbreak
+	case 0x71
+	return diskid@
+	swbreak
+	case 0x72
+	return peek(sector@,0)
+	swbreak
+	case 0x73
+	return peek(sector@,1)
+	swbreak
+	case 0x74
+	return peek(track@,0)
+	swbreak
+	case 0x75
+	return peek(track@,1)
+	swbreak
+	case 0x76
+	return peek(dmaptr@,0)
+	swbreak
+	case 0x77
+	return peek(dmaptr@,1)
+	swbreak
+	swend
+	return 0xFF
+swbreak
+swend
+return 0
+#global
+#include "z80.as"
+z80stackreset 0
+z80hltendset 0,2
+diskfilename="":diskfilename=dir_cmdline
+repeat:if strmid(diskfilename,0,1)=" "{diskfilename=strmid(diskfilename,1,strlen(diskfilename))}else{break}:loop
+address=0xFA00
+if diskfilename=""{diskfilename="DiskA.cpmdsk"}
+diskfname@(0)=diskfilename
+sdim cpmdata,0x1980
+bload diskfname@(0),cpmdata
+memcpy memory,cpmdata,0x1980,0xE400,0
+poke memory,0,0xC3
+lpoke memory,1,0xFA03
+poke memory,5,0xC3
+lpoke memory,6,0xFC06
+repeat
+z80run address,0
+//if (cnt\4100)=0{await}
+loop
+end
